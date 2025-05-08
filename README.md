@@ -7,3 +7,7 @@ MPI(L) Class 2025 - WUT
 
 -comments to add for easy explanation
 -gotta start writing the paper ;-;
+
+1.0.1
+
+    Comments added for ease of explanation

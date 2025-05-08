@@ -3,6 +3,9 @@
 #include <string.h>
 #include <stdbool.h>
 #include <ctype.h>
+#include <time.h>
+
+int track = 0;
 
 // Clears the terminal screen, depending on the operating system
 void clearTerminal() {
@@ -68,7 +71,10 @@ void showOpts() {
     printf("3. Resolution\n");
     printf("4. Davis Putnam\n");
     printf("5. DPLL\n");
-    printf("6. Exit\n");
+    printf("6. Track time"); 
+    if(track == 0) printf(" (off)\n");
+    else printf(" (on)\n");
+    printf("7. Exit\n");
 }
 
 // Negates a literal (a <-> A, B <-> b, etc.)
@@ -382,6 +388,14 @@ int main() {
                 clearTerminal();
                 if(C == 0) {
                     printf("No clauses to resolve. Please read clauses first.\n\n");
+                } else if(track == 1) {
+                    clock_t start = clock();
+                    resolution(C, clauses);
+                    clock_t end = clock();
+                    double time_taken_ms = ((double)(end - start)) * 1000 / CLOCKS_PER_SEC;
+                    printf("Time taken for resolution: %.2f ms\n", time_taken_ms);
+                    getchar();
+                    clearTerminal();
                 } else {
                     resolution(C, clauses);
                 }
@@ -390,6 +404,14 @@ int main() {
                 clearTerminal();
                 if(C == 0) {
                     printf("No clauses to resolve. Please read clauses first.\n\n");
+                } else if(track == 1) {
+                    clock_t start = clock();
+                    dp(C, clauses, 0);
+                    clock_t end = clock();
+                    double time_taken_ms = ((double)(end - start)) * 1000 / CLOCKS_PER_SEC;
+                    printf("Time taken for Davis-Putnam: %.2f ms\n", time_taken_ms);
+                    getchar();
+                    clearTerminal();
                 } else {
                     dp(C, clauses, 0);
                 }
@@ -398,11 +420,23 @@ int main() {
                 clearTerminal();
                 if(C == 0) {
                     printf("No clauses to resolve. Please read clauses first.\n\n");
+                } else if(track == 1) {
+                    clock_t start = clock();
+                    dp(C, clauses, 1);
+                    clock_t end = clock();
+                    double time_taken_ms = ((double)(end - start)) * 1000 / CLOCKS_PER_SEC;
+                    printf("Time taken for DPLL: %.2f ms\n", time_taken_ms);
+                    getchar();
+                    clearTerminal();
                 } else {
                     dp(C, clauses, 1);
                 }
                 break;
             case 6:
+                track = !track;
+                clearTerminal();
+                break;
+            case 7:
                 printf("Exiting...\n");
                 getchar();
                 getchar();
