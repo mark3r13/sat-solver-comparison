@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <ctype.h>
 
+// Clears the terminal screen, depending on the operating system
 void clearTerminal() {
     #ifdef _WIN32
         system("cls");  // Windows
@@ -12,12 +13,15 @@ void clearTerminal() {
     #endif
 }
 
+// Reads the number of literals for a single clause from the user
 void readK(int *K) {
     printf("Enter the number of literals: ");
     scanf("%d", K);
     printf("\n");
 }
 
+// Reads multiple clauses from the user and stores them in a dynamically allocated array
+// Each clause is represented as a string of characters
 void readC(int *C, char ***clauses) {
     printf("Enter the number of clauses: ");
     scanf("%d", C);
@@ -26,19 +30,21 @@ void readC(int *C, char ***clauses) {
     *clauses = (char **)malloc(*C * sizeof(char *));
     for(int i = 0; i < *C; i++) {
         int K, j = 0;
-        readK(&K);
+        readK(&K); // Get number of literals for clause i
         (*clauses)[i] = (char *)malloc((K + 1) * sizeof(char));
         for(j = 0; j < K; j++) {
             printf("Enter literal %d for clause %d: ", j + 1, i + 1);
             scanf(" %c", &(*clauses)[i][j]);
         }
-        (*clauses)[i][j] = '\0';
+        (*clauses)[i][j] = '\0'; // Null-terminate the clause string
         putchar('\n');
     }
     clearTerminal();
     printf("Clauses read successfully!\n\n");
 }
 
+// Prints all the clauses stored in the dynamically allocated array
+// Each clause is displayed with its index for easy reference
 void printC(int C, char **clauses) {
     for(int i = 0; i < C; i++) {
         printf("Clause %d: ", i + 1);
@@ -49,11 +55,12 @@ void printC(int C, char **clauses) {
     }
     putchar('\n');
     printf("Press Enter to continue...\n");
-    getchar();
-    getchar();
+    getchar(); // Clear buffer
+    getchar(); // Wait for enter key press
     clearTerminal();
 }
 
+// Displays the main menu options to the user
 void showOpts() {
     printf("Options:\n");
     printf("1. Read clauses\n");
@@ -64,10 +71,13 @@ void showOpts() {
     printf("6. Exit\n");
 }
 
+// Negates a literal (a <-> A, B <-> b, etc.)
+// All literals are assumed to be single characters (a-z, A-Z)
 char negate(char lit) {
     return islower(lit) ? toupper(lit) : tolower(lit);
 }
 
+// Checks if a clause contains a particular literal
 int clauseContains(char *clause, char lit) {
     for(int i = 0; clause[i] != '\0'; i++) {
         if(clause[i] == lit) return 1;
@@ -75,6 +85,10 @@ int clauseContains(char *clause, char lit) {
     return 0;
 }
 
+// Resolves two clauses based on a literal and returns the resolvent clause
+// The resolvent is formed by removing the literal from the first clause and the negation of the literal from the second clause
+// and combining the remaining literals
+// The function also ensures that no duplicate literals are included in the resolvent
 char *resolveClauses(char *clause1, char *clause2, char lit) {
     int len1 = strlen(clause1), len2 = strlen(clause2);
     char *resolvent = (char *)malloc(len1 + len2 + 1);
@@ -94,6 +108,7 @@ char *resolveClauses(char *clause1, char *clause2, char lit) {
     return resolvent;
 }
 
+// Checks if a clause is new (not already in the list)
 int isNewClause(char **resolvents, int count, char *clause) {
     for(int i = 0; i < count; i++) {
         if(strcmp(resolvents[i], clause) == 0) return 0;
@@ -101,27 +116,36 @@ int isNewClause(char **resolvents, int count, char *clause) {
     return 1;
 }
 
+// Implements the resolution algorithm to try to derive an empty clause
 void resolution(int C, char **clauses) {
-    char **allClauses = (char **)malloc(1000 * sizeof(char *));
+    char **allClauses = (char **)malloc(1000 * sizeof(char *)); // Arbitrary large space for clauses
     int total = 0;
 
+    // Copy initial clauses to allClauses
     for (int i = 0; i < C; i++) {
         allClauses[total++] = strdup(clauses[i]);
     }
 
+    // Add negated literals to allClauses
     int newDerived = 1;
     while (newDerived) {
         newDerived = 0;
 
+        // Iterate through all pairs of clauses
         for (int i = 0; i < total; i++) {
             for (int j = i + 1; j < total; j++) {
                 for (int k = 0; allClauses[i][k] != '\0'; k++) {
                     char lit = allClauses[i][k];
                     char neg = negate(lit);
 
+                    // Check if the negation of the literal exists in the other clause
+                    // If it does, resolve the clauses
                     if (clauseContains(allClauses[j], neg)) {
                         char *res = resolveClauses(allClauses[i], allClauses[j], lit);
 
+                        // Check if the resolvent is empty
+                        // If it is, the formula is unsatisfiable
+                        // and we can exit the loop
                         if (strlen(res) == 0) {
                             printf("Derived empty clause from [%s] and [%s].\n", allClauses[i], allClauses[j]);
                             printf("The formula is UNSAT.\n");
@@ -131,6 +155,11 @@ void resolution(int C, char **clauses) {
                             return;
                         }
 
+                        // Check if the resolvent is new
+                        // If it is, add it to the list of all clauses
+                        // and set newDerived to 1
+                        // to continue the loop
+                        // Otherwise, free the resolvent
                         if (isNewClause(allClauses, total, res)) {
                             printf("New clause from [%s] and [%s]: %s\n", allClauses[i], allClauses[j], res);
                             allClauses[total++] = res;
@@ -155,6 +184,7 @@ void resolution(int C, char **clauses) {
     clearTerminal();
 }
 
+// Prints a clause with brackets around it
 void printClause(const char *clause) {
     printf("[");
     for (int i = 0; i < strlen(clause); i++) {
@@ -163,6 +193,8 @@ void printClause(const char *clause) {
     printf("]");
 }
 
+// Checks if the current assignment satisfies all clauses
+// Returns 1 if satisfied, 0 otherwise
 int is_satisfied(char **clauses, int num_clauses, int *assignments, int num_vars) {
     for (int i = 0; i < num_clauses; i++) {
         int satisfied = 0;
@@ -180,7 +212,12 @@ int is_satisfied(char **clauses, int num_clauses, int *assignments, int num_vars
     return 1;
 }
 
+// DPLL algorithm for SAT solving
+// It recursively assigns values to variables and checks for satisfiability
+// Returns 1 if satisfiable, 0 otherwise
 int dpll(char **clauses, int num_clauses, int *assignments, int num_vars) {
+    // Check if all clauses are satisfied or if there are no clauses left
+    // If all clauses are satisfied, return SAT
     if (is_satisfied(clauses, num_clauses, assignments, num_vars)) {
         return 1; // SAT
     }
@@ -216,6 +253,8 @@ int dpll(char **clauses, int num_clauses, int *assignments, int num_vars) {
     return 0; // UNSAT
 }
 
+// Davis-Putnam algorithm for SAT solving
+// It uses unit propagation and backtracking to find a satisfying assignment
 void dp(int C, char **clauses, int ll) {
     int maxVars = 26;
     int assignments[maxVars];
@@ -237,6 +276,8 @@ void dp(int C, char **clauses, int ll) {
     }
     int numClauses = C;
 
+    // Loop until no clauses left or empty clause found
+    // This loop will keep simplifying the clauses until either all clauses are satisfied or an empty clause is derived
     while (numClauses > 0) {
         bool unitFound = false;
         char lit = '\0';
