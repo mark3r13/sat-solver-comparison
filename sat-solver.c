@@ -27,21 +27,41 @@ void readK(int *K) {
 // Each clause is represented as a string of characters
 void readC(int *C, char ***clauses) {
     printf("Enter the number of clauses: ");
-    scanf("%d", C);
-    printf("\n");
+    if (scanf("%d", C) != 1 || *C <= 0) {
+        printf("Invalid number of clauses.\n\n");
+        while ((getchar()) != '\n'); // Clear input buffer
+        return;
+    }
+    while ((getchar()) != '\n'); // Clear newline
 
     *clauses = (char **)malloc(*C * sizeof(char *));
-    for(int i = 0; i < *C; i++) {
-        int K, j = 0;
-        readK(&K); // Get number of literals for clause i
-        (*clauses)[i] = (char *)malloc((K + 1) * sizeof(char));
-        for(j = 0; j < K; j++) {
-            printf("Enter literal %d for clause %d: ", j + 1, i + 1);
-            scanf(" %c", &(*clauses)[i][j]);
+    for (int i = 0; i < *C; i++) {
+        int K;
+        printf("Clause %d:\n", i + 1);
+        while (1) {
+            printf("  Number of literals: ");
+            if (scanf("%d", &K) == 1 && K > 0) break;
+            printf("  Invalid input. Must be > 0.\n");
+            while ((getchar()) != '\n'); // Clear input buffer
         }
-        (*clauses)[i][j] = '\0'; // Null-terminate the clause string
-        putchar('\n');
+        while ((getchar()) != '\n'); // Clear newline
+
+        (*clauses)[i] = (char *)malloc((K + 1) * sizeof(char));
+        for (int j = 0; j < K; j++) {
+            printf("    Enter literal %d (a-z or A-Z): ", j + 1);
+            char lit;
+            if (scanf(" %c", &lit) != 1 || !isalpha(lit)) {
+                printf("    Invalid literal. Try again.\n");
+                j--; // Repeat input
+                while ((getchar()) != '\n'); // Clear input buffer
+                continue;
+            }
+            (*clauses)[i][j] = lit;
+        }
+        (*clauses)[i][K] = '\0'; // Null-terminate clause
+        while ((getchar()) != '\n'); // Clear newline
     }
+
     clearTerminal();
     printf("Clauses read successfully!\n\n");
 }
@@ -262,33 +282,43 @@ int dpll(char **clauses, int num_clauses, int *assignments, int num_vars) {
 // Davis-Putnam algorithm for SAT solving
 // It uses unit propagation and backtracking to find a satisfying assignment
 void dp(int C, char **clauses, int ll) {
+    if (clauses == NULL || C <= 0) {
+        printf("No clauses provided.\n\n");
+        return;
+    }
+
     int maxVars = 26;
     int assignments[maxVars];
     memset(assignments, 0, sizeof(assignments));
 
-    // Check for DPLL if ll is set to 0
+    // === DPLL Shortcut Mode ===
     if (ll == 0) {
         if (dpll(clauses, C, assignments, maxVars)) {
             printf("The formula is SAT.\n");
         } else {
             printf("The formula is UNSAT.\n");
         }
+
+        // Pause to view result
+        printf("Press Enter to continue...\n");
+        while ((getchar()) != '\n' && getchar() != EOF);
+        getchar();
+        clearTerminal();
+        return;
     }
 
-    // Unit propagation resolution (existing algorithm)
-    char **working = (char **)malloc(C * sizeof(char *));
+    // === Unit Propagation Mode ===
+    char **working = malloc(C * sizeof(char *));
     for (int i = 0; i < C; i++) {
         working[i] = strdup(clauses[i]);
     }
     int numClauses = C;
 
-    // Loop until no clauses left or empty clause found
-    // This loop will keep simplifying the clauses until either all clauses are satisfied or an empty clause is derived
     while (numClauses > 0) {
         bool unitFound = false;
         char lit = '\0';
 
-        // Unit clause detection
+        // Find unit clause
         for (int i = 0; i < numClauses; i++) {
             if (strlen(working[i]) == 1) {
                 lit = working[i][0];
@@ -297,56 +327,65 @@ void dp(int C, char **clauses, int ll) {
             }
         }
 
-        // If no unit, pick first literal of first clause
-        if (!unitFound && numClauses > 0) {
+        // If no unit clause, pick arbitrary literal
+        if (!unitFound) {
             lit = working[0][0];
         }
 
         char neg = negate(lit);
-
-        // Simplify clauses
-        char **newClauses = (char **)malloc(numClauses * sizeof(char *));
+        char **newClauses = malloc(numClauses * sizeof(char *));
         int newCount = 0;
 
         for (int i = 0; i < numClauses; i++) {
-            if (clauseContains(working[i], lit)) {
-                // Clause satisfied by current literal, discard it
+            char *clause = working[i];
+
+            // Clause is satisfied by literal → discard
+            if (clauseContains(clause, lit)) {
                 printf("Clause ");
-                printClause(working[i]);
+                printClause(clause);
                 printf(" is satisfied by literal %c. Removing.\n", lit);
-                free(working[i]);
+                free(clause);
                 continue;
             }
 
-            int len = strlen(working[i]);
-            char *newClause = (char *)malloc(len + 1);
+            // Remove negated literal
+            int len = strlen(clause);
+            char *newClause = malloc(len + 1);
             int k = 0;
             for (int j = 0; j < len; j++) {
-                if (working[i][j] != neg) {
-                    newClause[k++] = working[i][j];
+                if (clause[j] != neg) {
+                    newClause[k++] = clause[j];
                 }
             }
             newClause[k] = '\0';
 
             printf("Simplifying clause ");
-            printClause(working[i]);
+            printClause(clause);
             printf(" by removing %c (negation of %c). Result: ", neg, lit);
             printClause(newClause);
             printf("\n");
 
+            free(clause); // free old clause
+
+            // Empty clause → UNSAT
             if (k == 0) {
-                printf("Derived empty clause from ");
-                printClause(working[i]);
-                printf(" by assigning %c. Conflict found. Formula is UNSAT.\n\n", lit);
+                printf("Derived empty clause by assigning %c. Conflict found. Formula is UNSAT.\n\n", lit);
+
+                // Cleanup
+                free(newClause);
                 for (int x = 0; x < newCount; x++) free(newClauses[x]);
                 free(newClauses);
-                for (int x = 0; x < numClauses; x++) free(working[x]);
+                for (int x = i + 1; x < numClauses; x++) free(working[x]);
                 free(working);
+
+                printf("Press Enter to continue...\n");
+                while ((getchar()) != '\n' && getchar() != EOF);
+                getchar();
+                clearTerminal();
                 return;
             }
 
             newClauses[newCount++] = newClause;
-            free(working[i]);
         }
 
         free(working);
@@ -354,12 +393,13 @@ void dp(int C, char **clauses, int ll) {
         numClauses = newCount;
     }
 
+    // If loop completes: SAT
     printf("No conflict found. Formula is SAT.\n\n");
     for (int i = 0; i < numClauses; i++) free(working[i]);
     free(working);
 
     printf("Press Enter to continue...\n");
-    getchar();
+    while ((getchar()) != '\n' && getchar() != EOF);
     getchar();
     clearTerminal();
 }
@@ -367,99 +407,131 @@ void dp(int C, char **clauses, int ll) {
 int main() {
     clearTerminal();
     printf("Welcome to SAT Resolution!\n\n");
-    int C;
-    char **clauses;
 
-    while(1) {
+    int C = 0;
+    char **clauses = NULL;
+
+    while (1) {
         showOpts();
         int choice;
         printf("Enter your choice: ");
-        scanf("%d", &choice);
-        putchar('\n');
+        if (scanf("%d", &choice) != 1) {
+            printf("Invalid input. Try again.\n");
+            while ((getchar()) != '\n' && getchar() != EOF); // flush input
+            continue;
+        }
+        while ((getchar()) != '\n' && getchar() != EOF); // flush leftover newline
 
-        switch(choice) {
+        switch (choice) {
             case 1:
+                // Free old clauses if they exist
+                if (clauses != NULL) {
+                    for (int i = 0; i < C; i++) {
+                        free(clauses[i]);
+                    }
+                    free(clauses);
+                    clauses = NULL;
+                    C = 0;
+                }
                 readC(&C, &clauses);
                 break;
+
             case 2:
-                printC(C, clauses);
-                break;
-            case 3:
-                clearTerminal();
-                if(C == 0) {
-                    printf("No clauses to resolve. Please read clauses first.\n\n");
-                } else if(track == 1) {
-                    clock_t start = clock();
-                    resolution(C, clauses);
-                    clock_t end = clock();
-                    double time_taken_ms = ((double)(end - start)) * 1000 / CLOCKS_PER_SEC;
-                    printf("Time taken for resolution: %.2f ms\n", time_taken_ms);
-                    getchar();
-                    clearTerminal();
+                if (clauses == NULL || C == 0) {
+                    printf("No clauses to print. Please read clauses first.\n\n");
                 } else {
-                    resolution(C, clauses);
+                    printC(C, clauses);
                 }
                 break;
-            case 4:
+
+            case 3: // Resolution
                 clearTerminal();
-                if(C == 0) {
+                if (clauses == NULL || C == 0) {
                     printf("No clauses to resolve. Please read clauses first.\n\n");
-                } else if(track == 1) {
-                    clock_t start = clock();
-                    dp(C, clauses, 0);
-                    clock_t end = clock();
-                    double time_taken_ms = ((double)(end - start)) * 1000 / CLOCKS_PER_SEC;
-                    printf("Time taken for Davis-Putnam: %.2f ms\n", time_taken_ms);
+                } else {
+                    if (track) {
+                        clock_t start = clock();
+                        resolution(C, clauses);
+                        clock_t end = clock();
+                        printf("Time taken: %.2f ms\n",
+                            ((double)(end - start)) * 1000 / CLOCKS_PER_SEC);
+                    } else {
+                        resolution(C, clauses);
+                    }
+                    printf("Press Enter to continue...\n");
+                    while ((getchar()) != '\n' && getchar() != EOF);
                     getchar();
                     clearTerminal();
-                } else {
-                    dp(C, clauses, 0);
                 }
                 break;
-            case 5:
+
+            case 4: // Davis-Putnam
                 clearTerminal();
-                if(C == 0) {
+                if (clauses == NULL || C == 0) {
                     printf("No clauses to resolve. Please read clauses first.\n\n");
-                } else if(track == 1) {
-                    clock_t start = clock();
-                    dp(C, clauses, 1);
-                    clock_t end = clock();
-                    double time_taken_ms = ((double)(end - start)) * 1000 / CLOCKS_PER_SEC;
-                    printf("Time taken for DPLL: %.2f ms\n", time_taken_ms);
+                } else {
+                    if (track) {
+                        clock_t start = clock();
+                        dp(C, clauses, 0);
+                        clock_t end = clock();
+                        printf("Time taken: %.2f ms\n",
+                            ((double)(end - start)) * 1000 / CLOCKS_PER_SEC);
+                    } else {
+                        dp(C, clauses, 0);
+                    }
+                    printf("Press Enter to continue...\n");
+                    while ((getchar()) != '\n' && getchar() != EOF);
                     getchar();
                     clearTerminal();
-                } else {
-                    dp(C, clauses, 1);
                 }
                 break;
-            case 6:
+
+            case 5: // DPLL
+                clearTerminal();
+                if (clauses == NULL || C == 0) {
+                    printf("No clauses to resolve. Please read clauses first.\n\n");
+                } else {
+                    if (track) {
+                        clock_t start = clock();
+                        dp(C, clauses, 1);
+                        clock_t end = clock();
+                        printf("Time taken: %.2f ms\n",
+                            ((double)(end - start)) * 1000 / CLOCKS_PER_SEC);
+                    } else {
+                        dp(C, clauses, 1);
+                    }
+                    printf("Press Enter to continue...\n");
+                    while ((getchar()) != '\n' && getchar() != EOF);
+                    getchar();
+                    clearTerminal();
+                }
+                break;
+
+            case 6: // Toggle time tracking
                 track = !track;
                 clearTerminal();
                 break;
-            case 7:
+
+            case 7: // Exit
                 printf("Exiting...\n");
-                getchar();
+
+                // Cleanup memory
+                if (clauses != NULL) {
+                    for (int i = 0; i < C; i++) {
+                        free(clauses[i]);
+                    }
+                    free(clauses);
+                }
+
+                printf("Press Enter to exit...\n");
+                while ((getchar()) != '\n' && getchar() != EOF);
                 getchar();
                 clearTerminal();
-                exit(0);
-                break;
+                return 0;
+
             default:
-                printf("Invalid choice. Please try again.\n\n");
+                printf("Invalid choice. Try again.\n\n");
                 break;
         }
     }
-
-    printf("FLAG\n");
-
-    // Free allocated memory
-    for(int i = 0; i < C; i++) {
-        free(clauses[i]);
-    }
-    free(clauses);
-    printf("Memory cleared succesfully!\n");
-    getchar();
-    clearTerminal();
-
-    printf("Exiting...\n");
-    return 0;
 }

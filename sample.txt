@@ -1,0 +1,29 @@
+1. {A, b, C}, {B, C}, {a, C}, {B, c}, {b}
+
+resolution: 47.00 ms, 38.00 ms, 49.00 ms                UNSAT
+dp: 20.00 ms, 27.00 ms, 34.00 ms                        UNSAT (with crash on original algorithm)
+dpll: 16646.00 ms (safe mode), 1586.00 ms, 944.00 ms    UNSAT
+
+2. {A, b}, {A, C}, {b, C}, {a, B}, {B, c}, {a, c}
+
+resolution: 41.00 ms,  43.00 ms, 43.00 ms               UNSAT
+dp: 28.00 ms, 34.00 ms, 29.00 ms                        UNSAT (no crash on original but long time)
+dpll: 1032.00 ms, 792.00 ms, 560.00 ms                  UNSAT
+
+3. {P, Q, r}, {p, R}, {P, q, S}, {p, q, r}, {P, s}
+
+resolution: crash
+dp: 1992.00 ms, 1146.00 ms, 1070.00 ms                  SAT
+dpll: 4699.00 ms, 722.00 ms, 844.00 ms                  SAT
+
+4. {A, b}, {B, c}, {a, C}
+
+resolution: 33.00 ms, 32.00 ms, 28.00 ms                UNSAT
+dp: 722.00 ms, 1570.00 ms, 685.00 ms                    SAT
+dpll: 1779.00 ms, 1037.00 ms, 652.00 ms                 SAT
+
+5. {X, y}, {Y, z}, {Z, x}
+
+resolution: 35.00 ms, 29.00 ms, 31.00 ms                UNSAT
+dp: 784.00 ms, 701.00 ms, 745.00 ms                     SAT
+dpll: 2064.00 ms, 643.00 ms, 746.00 ms                  SAT
